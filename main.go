@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -41,17 +42,26 @@ type CompetitorInfo struct{  // информация о конкретном у�
 	CounterHitTargets  int // счётчик попаданий по мишеням
 }
 
+type CompetitorResultInfo struct{
+	CompetitorId string  // id участника
+	DNSFInfo string  // финишировал/не стартовал/не финишировал
+	TotalTime float64  // суммарное время на забег в секундах
+	TotalTimeStr string  // суммарное время, затраченное на забег
+	EachLapInfo string  // строка с информацией о времени и средней скорости каждого круга
+	PenaltyLapsInfo string  // строка с информацией о штрафных минутах
+	ShotsInfo string  // строка с информацией о точности стрельбы
+}
+
 var configInfo ConfigInfo
 var competitorsInfo map[string]*CompetitorInfo = make(map[string]*CompetitorInfo)
-var timeLayout = "10:00:00.000"
-var timeLayoutConfig = "15:04:05"
+
 
 func main(){
 	log.SetFlags(0)
 	getConfigInfo("config.json")
 	log.Println(configInfo)
 	
-	inputFile, err := os.Open("events/test_events.txt")
+	inputFile, err := os.Open("events/example_events.txt")
 	if err != nil{
 		log.Fatal("Problem in opening input file")
 	}
@@ -169,6 +179,8 @@ func saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extr
 		competitorsInfo[compId].EveryLapTimes[len(competitorsInfo[compId].EveryLapTimes)][1] = curTimeCleaned
 		if len(competitorsInfo[compId].EveryLapTimes) < configInfo.LapsCount{  // информации о кругах меньше чем должно быть всего кругов
 			competitorsInfo[compId].EveryLapTimes[len(competitorsInfo[compId].EveryLapTimes) + 1] = []string{curTimeCleaned, ""}
+		} else {
+			competitorsInfo[compId].NoFinishedFlag = false
 		}
 	case 11:  // не может финишировать
 		competitorsInfo[compId].NoFinishedFlag = true
@@ -178,9 +190,127 @@ func saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extr
 
 // печать итогового отчёта
 func printFinalReport(){
+	// массив с итоговой инфорацией участников, которые закончили гонку, чтобы их потом можно было отсортировать
+	resultMapFinished := []CompetitorResultInfo{}
+	// массив с итоговой инфорацией участников, которые не начали / не закончили гонку, чтобы их не сортировать, 
+	// а вывести в конце списка в том порядке, в котором они встречаются
+	resultMapDNSF := []CompetitorResultInfo{}
+
 	for key, value := range competitorsInfo{
 		log.Println(key, value)
+		// вычисление количества завершёённых кругов
+		var curLapsDone int
+		if value.EveryLapTimes[len(value.EveryLapTimes)][1] == ""{
+			curLapsDone = len(value.EveryLapTimes) - 1
+		} else {
+			curLapsDone = len(value.EveryLapTimes)
+		}
+
+		curCompetitorResultInfo := CompetitorResultInfo{
+			CompetitorId: key,  // id участника
+			ShotsInfo: strconv.Itoa(value.CounterHitTargets) + "/" + strconv.Itoa(curLapsDone * 5 * configInfo.FiringLinesCount), // вычисление результатов стрельбы
+			EachLapInfo: createEachLapInfo(value.EveryLapTimes, curLapsDone),  // информация по кругам
+			PenaltyLapsInfo: createPenaltyLapsInfo(value.EveryPenaltyLapTimes, curLapsDone * 5 * configInfo.FiringLinesCount - value.CounterHitTargets),
+		}
+
+		// наполнение остальной информации в зависимости от результатов
+		if value.NoFinishedFlag || value.NotStartedFlag || curLapsDone != configInfo.LapsCount{
+			if value.NotStartedFlag{
+				curCompetitorResultInfo.DNSFInfo = "[NotStarted]"
+			} else{
+				curCompetitorResultInfo.DNSFInfo = "[NotFinished]"
+			}
+			curCompetitorResultInfo.TotalTime = -1
+			curCompetitorResultInfo.TotalTimeStr = "-1"
+
+			resultMapDNSF = append(resultMapDNSF, curCompetitorResultInfo)
+		} else {
+			curCompetitorResultInfo.DNSFInfo = "[Finished]"
+			
+			// определение итогового времени, затраченного на всю гонку
+			startTime, _ := time.Parse("15:04:05.000", value.ScheduledTimeStartStr)
+			finishTime, _ := time.Parse("15:04:05.000", value.EveryLapTimes[curLapsDone][1])
+
+			curCompetitorResultInfo.TotalTimeStr = time.Time{}.Add(finishTime.Sub(startTime)).Format("15:04:05.000")
+			curCompetitorResultInfo.TotalTime = finishTime.Sub(startTime).Seconds()
+
+			resultMapFinished = append(resultMapFinished, curCompetitorResultInfo)
+		}
 	}
+
+	log.Println(resultMapFinished)
+	log.Println(resultMapDNSF)
+}
+
+// создание строки с информацией о каждом круге
+func createEachLapInfo(everyLapTimes map[int][]string, curLapsDone int) string{
+	var resultString string
+
+	resultString = "["
+	for lapNum, lapInfo := range everyLapTimes{
+		if lapInfo[0] == "" || lapInfo[1] == ""{
+			continue
+		}
+
+		resultString += "{"
+		startTime, _ := time.Parse("15:04:05.000", lapInfo[0])
+		finishTime, _ := time.Parse("15:04:05.000", lapInfo[1])
+		resultString += time.Time{}.Add(finishTime.Sub(startTime)).Format("15:04:05.000")
+		resultString += ", "
+		resultString += fmt.Sprintf("%f", float64(configInfo.LapLen) / finishTime.Sub(startTime).Seconds())
+		resultString += "}"
+		if lapNum != curLapsDone{
+			resultString += "; "
+		}
+	}
+	if curLapsDone < configInfo.LapsCount{
+		resultString += "; {,}"
+	}
+	resultString += "]"
+	log.Println(resultString)
+	return resultString
+}
+
+// создание строки с информацией о прохождении штрафных кругов
+func createPenaltyLapsInfo(everyPenaltyLapTimes map[int][]string, penaltyLapsCount int) string {
+    var totalPenaltyDuration time.Duration
+
+    for _, value := range everyPenaltyLapTimes {
+        startTime, err := time.Parse("15:04:05.000", value[0])
+        if err != nil {
+            log.Printf("Error parsing start time: %v", err)
+            continue
+        }
+
+        finishTime, err := time.Parse("15:04:05.000", value[1])
+        if err != nil {
+            log.Printf("Error parsing finish time: %v", err)
+            continue
+        }
+
+        totalPenaltyDuration += finishTime.Sub(startTime)
+    }
+
+    // Рассчитываем общую дистанцию (в метрах, если PenaltyLapLen в метрах)
+    totalDistance := float64(penaltyLapsCount * configInfo.PenaltyLapLen)
+    
+    // Рассчитываем среднюю скорость (м/с)
+    totalSeconds := totalPenaltyDuration.Seconds()
+    var avgSpeed float64
+    if totalSeconds > 0 {
+        avgSpeed = totalDistance / totalSeconds
+    }
+
+    // Форматируем общее время в строку HH:MM:SS.fff
+    hours := int(totalPenaltyDuration.Hours())
+    minutes := int(totalPenaltyDuration.Minutes()) % 60
+    seconds := int(totalPenaltyDuration.Seconds()) % 60
+    milliseconds := int(totalPenaltyDuration.Milliseconds()) % 1000
+
+    resultString := fmt.Sprintf("{%02d:%02d:%02d.%03d, %.6f}", 
+        hours, minutes, seconds, milliseconds, avgSpeed)
+
+    return resultString
 }
 
 
