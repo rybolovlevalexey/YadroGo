@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -52,6 +53,17 @@ type CompetitorResultInfo struct{
 	ShotsInfo string  // строка с информацией о точности стрельбы
 }
 
+type FinalReportStruct struct{
+	ResultMapFinished []CompetitorResultInfo
+	ResultMapDNSF []CompetitorResultInfo	
+}
+
+type SortByTotalTime []CompetitorResultInfo
+
+func (a SortByTotalTime) Len() int           { return len(a) }
+func (a SortByTotalTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a SortByTotalTime) Less(i, j int) bool { return a[i].TotalTime < a[j].TotalTime }
+
 var configInfo ConfigInfo
 var competitorsInfo map[string]*CompetitorInfo = make(map[string]*CompetitorInfo)
 
@@ -75,7 +87,8 @@ func main(){
 		getInfoFromCurrentLine(line)
 	}
 
-	printFinalReport()
+	finalReport := createFinalReport()
+	printSortedFinalReport(finalReport)
 }
 
 
@@ -188,8 +201,19 @@ func saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extr
 }
 
 
-// печать итогового отчёта
-func printFinalReport(){
+func printSortedFinalReport(finalReport FinalReportStruct){
+	sort.Sort(SortByTotalTime(finalReport.ResultMapFinished))
+	for _, elem := range finalReport.ResultMapFinished{
+		log.Printf("%s %s %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, elem.EachLapInfo, elem.PenaltyLapsInfo, elem.ShotsInfo)
+	}
+	for _, elem := range finalReport.ResultMapDNSF{
+		log.Printf("%s %s %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, elem.EachLapInfo, elem.PenaltyLapsInfo, elem.ShotsInfo)
+	}
+}
+
+
+// генерация финального отчёта
+func createFinalReport() FinalReportStruct{
 	// массив с итоговой инфорацией участников, которые закончили гонку, чтобы их потом можно было отсортировать
 	resultMapFinished := []CompetitorResultInfo{}
 	// массив с итоговой инфорацией участников, которые не начали / не закончили гонку, чтобы их не сортировать, 
@@ -197,7 +221,7 @@ func printFinalReport(){
 	resultMapDNSF := []CompetitorResultInfo{}
 
 	for key, value := range competitorsInfo{
-		log.Println(key, value)
+		// log.Println(key, value)
 		// вычисление количества завершёённых кругов
 		var curLapsDone int
 		if value.EveryLapTimes[len(value.EveryLapTimes)][1] == ""{
@@ -211,6 +235,8 @@ func printFinalReport(){
 			ShotsInfo: strconv.Itoa(value.CounterHitTargets) + "/" + strconv.Itoa(curLapsDone * 5 * configInfo.FiringLinesCount), // вычисление результатов стрельбы
 			EachLapInfo: createEachLapInfo(value.EveryLapTimes, curLapsDone),  // информация по кругам
 			PenaltyLapsInfo: createPenaltyLapsInfo(value.EveryPenaltyLapTimes, curLapsDone * 5 * configInfo.FiringLinesCount - value.CounterHitTargets),
+			TotalTime: -1,
+			TotalTimeStr: "-1",
 		}
 
 		// наполнение остальной информации в зависимости от результатов
@@ -220,8 +246,6 @@ func printFinalReport(){
 			} else{
 				curCompetitorResultInfo.DNSFInfo = "[NotFinished]"
 			}
-			curCompetitorResultInfo.TotalTime = -1
-			curCompetitorResultInfo.TotalTimeStr = "-1"
 
 			resultMapDNSF = append(resultMapDNSF, curCompetitorResultInfo)
 		} else {
@@ -238,8 +262,10 @@ func printFinalReport(){
 		}
 	}
 
-	log.Println(resultMapFinished)
-	log.Println(resultMapDNSF)
+	return FinalReportStruct{
+		ResultMapFinished: resultMapFinished,
+		ResultMapDNSF: resultMapDNSF,
+	}
 }
 
 // создание строки с информацией о каждом круге
@@ -267,7 +293,7 @@ func createEachLapInfo(everyLapTimes map[int][]string, curLapsDone int) string{
 		resultString += "; {,}"
 	}
 	resultString += "]"
-	log.Println(resultString)
+	// log.Println(resultString)
 	return resultString
 }
 
