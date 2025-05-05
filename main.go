@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+const configPath = "configs/config2.json"
+const eventsPath = "events/events2.txt"
+
+
 func parseHHMMSS(s string) (time.Duration, error) {
 	t, err := time.Parse("15:04:05", s)
 	if err != nil {
@@ -59,7 +63,6 @@ type FinalReportStruct struct{
 }
 
 type SortByTotalTime []CompetitorResultInfo
-
 func (a SortByTotalTime) Len() int           { return len(a) }
 func (a SortByTotalTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SortByTotalTime) Less(i, j int) bool { return a[i].TotalTime < a[j].TotalTime }
@@ -67,13 +70,12 @@ func (a SortByTotalTime) Less(i, j int) bool { return a[i].TotalTime < a[j].Tota
 var configInfo ConfigInfo
 var competitorsInfo map[string]*CompetitorInfo = make(map[string]*CompetitorInfo)
 
-
 func main(){
 	log.SetFlags(0)
-	getConfigInfo("config.json")
+	getConfigInfo(configPath)
 	log.Println(configInfo)
 	
-	inputFile, err := os.Open("events/example_events.txt")
+	inputFile, err := os.Open(eventsPath)
 	if err != nil{
 		log.Fatal("Problem in opening input file")
 	}
@@ -84,6 +86,9 @@ func main(){
 	inputDataStr := string(inputData)
 
 	for _, line := range strings.Split(inputDataStr, "\n"){
+		if line == ""{
+			continue
+		}
 		getInfoFromCurrentLine(line)
 	}
 
@@ -160,7 +165,7 @@ func saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extr
 		competitorsInfo[compId].EveryPenaltyLapTimes = make(map[int][]string)
 		competitorsInfo[compId].EveryLapTimes[1] = []string{"", ""}
 	case 2:  // получено своё время старта
-		competitorsInfo[compId].ScheduledTimeStartStr = curTimeCleaned
+		competitorsInfo[compId].ScheduledTimeStartStr = extraParam
 		competitorsInfo[compId].EveryLapTimes[1][0] = extraParam
 	case 3:  // участник на старте
 		// то, что участник на страте, никак не влияет на сохраняемую информацию
@@ -169,7 +174,7 @@ func saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extr
 
 		// проверка, что старт был в положенный промежуток времени
 		actualTime, _ := time.Parse("15:04:05.000", competitorsInfo[compId].ActualTimeStartStr)  // время старта
-		startTime, _ := time.Parse("15:04:05", configInfo.StartTimeStr)  // время старта по расписанию
+		startTime, _ := time.Parse("15:04:05", competitorsInfo[compId].ScheduledTimeStartStr)  // время старта по расписанию
 		delta, _ := parseHHMMSS(configInfo.StartDeltaStr)  // временной промежуток в который можно стартовать
 		endTime := startTime.Add(delta)  // время после которого нельзя стартовать
 		// log.Println(startTime, "\n", endTime, "\n", delta, "\n", actualTime)
@@ -204,7 +209,7 @@ func saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extr
 func printSortedFinalReport(finalReport FinalReportStruct){
 	sort.Sort(SortByTotalTime(finalReport.ResultMapFinished))
 	for _, elem := range finalReport.ResultMapFinished{
-		log.Printf("%s %s %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, elem.EachLapInfo, elem.PenaltyLapsInfo, elem.ShotsInfo)
+		log.Printf("%s %s(%s) %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, elem.TotalTimeStr, elem.EachLapInfo, elem.PenaltyLapsInfo, elem.ShotsInfo)
 	}
 	for _, elem := range finalReport.ResultMapDNSF{
 		log.Printf("%s %s %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, elem.EachLapInfo, elem.PenaltyLapsInfo, elem.ShotsInfo)
@@ -232,9 +237,9 @@ func createFinalReport() FinalReportStruct{
 
 		curCompetitorResultInfo := CompetitorResultInfo{
 			CompetitorId: key,  // id участника
-			ShotsInfo: strconv.Itoa(value.CounterHitTargets) + "/" + strconv.Itoa(curLapsDone * 5 * configInfo.FiringLinesCount), // вычисление результатов стрельбы
+			ShotsInfo: strconv.Itoa(value.CounterHitTargets) + "/" + strconv.Itoa(5 * configInfo.FiringLinesCount), // вычисление результатов стрельбы
 			EachLapInfo: createEachLapInfo(value.EveryLapTimes, curLapsDone),  // информация по кругам
-			PenaltyLapsInfo: createPenaltyLapsInfo(value.EveryPenaltyLapTimes, curLapsDone * 5 * configInfo.FiringLinesCount - value.CounterHitTargets),
+			PenaltyLapsInfo: createPenaltyLapsInfo(value.EveryPenaltyLapTimes, 5 * configInfo.FiringLinesCount - value.CounterHitTargets),
 			TotalTime: -1,
 			TotalTimeStr: "-1",
 		}
@@ -273,7 +278,12 @@ func createEachLapInfo(everyLapTimes map[int][]string, curLapsDone int) string{
 	var resultString string
 
 	resultString = "["
-	for lapNum, lapInfo := range everyLapTimes{
+	for lapNum := 1; lapNum <= len(everyLapTimes); lapNum += 1{
+		lapInfo, exists := everyLapTimes[lapNum]
+		if !exists{
+			continue
+		}
+		
 		if lapInfo[0] == "" || lapInfo[1] == ""{
 			continue
 		}
@@ -283,7 +293,7 @@ func createEachLapInfo(everyLapTimes map[int][]string, curLapsDone int) string{
 		finishTime, _ := time.Parse("15:04:05.000", lapInfo[1])
 		resultString += time.Time{}.Add(finishTime.Sub(startTime)).Format("15:04:05.000")
 		resultString += ", "
-		resultString += fmt.Sprintf("%f", float64(configInfo.LapLen) / finishTime.Sub(startTime).Seconds())
+		resultString += fmt.Sprintf("%.3f", float64(configInfo.LapLen) / finishTime.Sub(startTime).Seconds())
 		resultString += "}"
 		if lapNum != curLapsDone{
 			resultString += "; "
@@ -333,8 +343,12 @@ func createPenaltyLapsInfo(everyPenaltyLapTimes map[int][]string, penaltyLapsCou
     seconds := int(totalPenaltyDuration.Seconds()) % 60
     milliseconds := int(totalPenaltyDuration.Milliseconds()) % 1000
 
-    resultString := fmt.Sprintf("{%02d:%02d:%02d.%03d, %.6f}", 
+    resultString := fmt.Sprintf("{%02d:%02d:%02d.%03d, %.3f}", 
         hours, minutes, seconds, milliseconds, avgSpeed)
+
+	if resultString == "{00:00:00.000, 0.000}"{
+		resultString = "{,}"
+	}
 
     return resultString
 }
