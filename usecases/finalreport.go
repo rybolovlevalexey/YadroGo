@@ -10,12 +10,15 @@ import (
 	"sort"
 )
 
+// класс по созданию финального отчёта, хранит два списка: гонщиков финишировавших и всех остальных
 type FinalReport struct{
 	ResultMapFinished []models.CompetitorResultInfo
 	ResultMapDNSF []models.CompetitorResultInfo
 }
 
-// генерация финального отчёта
+// генерация финального отчёта (на вход подаётся конкретная гонка):
+// делит гонщиков на финишировавших и нет
+// преобразует входные данные (вычисляет время, потраченное на каждый круг, подготавливает строки, которые будут выводиться)
 func (f *FinalReport) CreateFinalReport(b *Biathlon){
 	// массив с итоговой инфорацией участников, которые закончили гонку, чтобы их потом можно было отсортировать
 	resultMapFinished := []models.CompetitorResultInfo{}
@@ -75,6 +78,8 @@ func (f *FinalReport) CreateFinalReport(b *Biathlon){
 
 
 // создание строки с информацией о каждом круге
+// входные данные: словарь - номером круга (ключ) и список начала и конца круга (значение)
+// количество кругов, которые завершил данный гонщик; длина круга; общее количество кругов
 func (f *FinalReport) createEachLapInfo(everyLapTimes map[int][]string, curLapsDone int, lapLen int, lapsCount int) string{
 	var resultString string
 
@@ -110,6 +115,8 @@ func (f *FinalReport) createEachLapInfo(everyLapTimes map[int][]string, curLapsD
 
 
 // создание строки с информацией о прохождении штрафных кругов
+// входные данные: словарь - номером  круга (ключ) и список начала и конца прохождения штрафных кругов (значение)
+// количество штрафных кругов, которые завершил данный гонщик; длина штрафного круга
 func (f *FinalReport) createPenaltyLapsInfo(everyPenaltyLapTimes map[int][]string, penaltyLapsCount int, penaltyLapLen int) string {
     var totalPenaltyDuration time.Duration
 
@@ -156,6 +163,7 @@ func (f *FinalReport) createPenaltyLapsInfo(everyPenaltyLapTimes map[int][]strin
 }
 
 
+// вывод итогового отчёта(финишировавшие сортируются по возрастанию общего времени; нефинишировавшие печатаются в конце в порядке их появления)
 func (f *FinalReport) PrintSortedFinalReport(){
 	sort.Sort(models.SortByTotalTime(f.ResultMapFinished))
 	for _, elem := range f.ResultMapFinished{

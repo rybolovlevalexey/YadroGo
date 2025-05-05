@@ -2,7 +2,7 @@ package usecases
 
 import (
 	"YadroGo/models"
-	"YadroGo/core"
+	"YadroGo/services"
 	
 	"strings"
 	"strconv"
@@ -14,17 +14,19 @@ import (
 
 
 
-
+// класс, занимающийся обработкой поступающих эвентов, хранит конфиги гонки и информацию обо всех гонщиках
 type Biathlon struct{
 	configInfo models.ConfigInfo
 	competitorsInfo map[string]*models.CompetitorInfo
 }
 
+// инициализация, необходимо передать конфиги конкретной гонки
 func (b *Biathlon) Init(configInfo models.ConfigInfo){
 	b.configInfo = configInfo
 	b.competitorsInfo = make(map[string]*models.CompetitorInfo)
 }
 
+// запуск обработки эвентов, необходимо передать строку с путём до файла с обрабатываемыми файлами
 func (b *Biathlon) StartProcessing(eventsPath string){
 	inputFile, err := os.Open(eventsPath)
 	if err != nil{
@@ -44,10 +46,14 @@ func (b *Biathlon) StartProcessing(eventsPath string){
 	}
 }
 
-// получение информации из конкретной строки IncomingEvents
+// получение информации из конкретной строки IncomingEvents, на вход подаётся конкретная строка
 func (b *Biathlon) getInfoFromCurrentLine(lineData string){
 	// обработка полученной строки
 	lineDataSplited := strings.Split(lineData, " ")
+	if len(lineDataSplited) < 3{
+		return
+	}
+
 	curTime := strings.TrimSpace(lineDataSplited[0])  // в строке сначала идёт время
 	runesCurTime := []rune(curTime)
 	curTimeCleaned := string(runesCurTime[1 : len(runesCurTime)-1])  // время без кавычек
@@ -75,6 +81,7 @@ func (b *Biathlon) getInfoFromCurrentLine(lineData string){
 
 
 // функция для печати информации о полученном событии
+// входные данные: id события, время события, id гонщика, дополнительный параметр (может быть пустой строкой)
 func (b *Biathlon) printOutputLog(eventIdInt int, curTime string, compId string, extraParam string){
 	switch eventIdInt{
 	case 1:
@@ -103,7 +110,8 @@ func (b *Biathlon) printOutputLog(eventIdInt int, curTime string, compId string,
 }
 
 
-// функция для сохранения информации о полученном событии
+// функция для сохранения информации о полученном событии 
+// входные данные: id события, id гонщика, очищенное от лишних скобочек время события, дополнительный параметр (может быть пустой строкой)
 func (b *Biathlon) saveInfoFromLine(eventIdInt int, compId string, curTimeCleaned string, extraParam string){
 	switch eventIdInt{
 	case 1:  // регистрация
@@ -122,7 +130,7 @@ func (b *Biathlon) saveInfoFromLine(eventIdInt int, compId string, curTimeCleane
 		// проверка, что старт был в положенный промежуток времени
 		actualTime, _ := time.Parse("15:04:05.000", b.competitorsInfo[compId].ActualTimeStartStr)  // время старта
 		startTime, _ := time.Parse("15:04:05", b.competitorsInfo[compId].ScheduledTimeStartStr)  // время старта по расписанию
-		delta, _ := core.ParseHHMMSS(b.configInfo.StartDeltaStr)  // временной промежуток в который можно стартовать
+		delta, _ := services.ParseHHMMSS(b.configInfo.StartDeltaStr)  // временной промежуток в который можно стартовать
 		endTime := startTime.Add(delta)  // время после которого нельзя стартовать
 		// log.Println(startTime, "\n", endTime, "\n", delta, "\n", actualTime)
 		if !(actualTime.After(startTime) && actualTime.Before(endTime)){
