@@ -6,6 +6,7 @@ import (
 	"os"
 	"encoding/json"
 	"io"
+	"errors"
 
 	"YadroGo/models"
 )
@@ -23,25 +24,28 @@ func ParseHHMMSS(s string) (time.Duration, error) {
 
 
 // получение информации из конфигурационного файла
-func GetConfigInfo(configPath string) models.ConfigInfo{
+func GetConfigInfo(configPath string) (models.ConfigInfo, error){
 	var configInfo models.ConfigInfo
 	
 	file, err := os.Open(configPath)
 	if err != nil{
-		log.Fatal("Problem in opening config file")
+		log.Printf("Problem in opening config file %s\n", configPath)
+		return configInfo, errors.New("opening file problem")
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil{
-		log.Fatal("Problem in reading config data")
+		log.Printf("Problem in reading config data of file %s\n", configPath)
+		return configInfo, errors.New("problem in file data")
 	}
 
 	err = json.Unmarshal(data, &configInfo)
 	if err != nil{
-		log.Fatal("Problem in json format of config file")
+		log.Printf("Problem in json format of file %s\n", configPath)
+		return configInfo, errors.New("json format")
 	}
 
-	log.Println("config.json correctly parsed")	
-	return configInfo
+	log.Printf("%s correctly parsed\n", configPath)	
+	return configInfo, nil
 }
