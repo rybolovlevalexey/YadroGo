@@ -1,7 +1,6 @@
-package tests
+package services
 
 import (
-	"YadroGo/services"
 	"YadroGo/settings"
 	"time"
 
@@ -20,7 +19,7 @@ func TestGetConfigInfo(t *testing.T){
 		"../files/configs/testconfig.json", 
 		"../files/configs/testbadformatconfig.json",
 	}{
-		_, err := services.GetConfigInfo(elem)
+		_, err := GetConfigInfo(elem)
 		if err == nil{
 			t.Error("excepted error in opening/reading/unmarshal file")
 		}
@@ -36,7 +35,7 @@ func TestGetConfigInfo(t *testing.T){
 			cnfPath = strings.Join(splittedCnfPath[0:len(splittedCnfPath) - 1], ".") + fmt.Sprintf(
 				"%d.", i) + splittedCnfPath[len(splittedCnfPath) - 1]
 		}
-		cnf, err := services.GetConfigInfo(cnfPath)
+		cnf, err := GetConfigInfo(cnfPath)
 		if err != nil{
 			t.Errorf("excepted no errors")	
 		}
@@ -72,7 +71,7 @@ func TestGetConfigInfo(t *testing.T){
 
 
 func TestParseHHMMSS(t *testing.T){
-	timeDuration, err := services.ParseHHMMSS("00:01:30")
+	timeDuration, err := ParseHHMMSS("00:01:30")
 	if err != nil{
 		t.Errorf("err expected not nil")
 	}
@@ -92,7 +91,7 @@ func TestParseHHMMSS(t *testing.T){
 	}
 
 
-	timeDuration, _ = services.ParseHHMMSS("01:21:15")
+	timeDuration, _ = ParseHHMMSS("01:21:15")
 	if timeDuration.Minutes() != 81.25{
 		t.Errorf("minutes in timeDuration expected 81.25")
 	}
