@@ -6,12 +6,12 @@ An application for processing logs of events related to the biathlon race. Befor
 - Go (1.20+)
 
 ## Launch project
-- ```git clone https://github.com/rybolovlevalexey/YadroGo/```
-- go to the root of the project
-- put your config file in files/configs/ and events file in files/events/
-- change ConfigPath and EventsPath in settings/settings.go
-- ```go run main.go```
-- ```go test -cover ./...``` (to watch test results)
+1. ```git clone https://github.com/rybolovlevalexey/YadroGo/```
+2. go to the root of the project
+3. put your config file in files/configs/ and events file in files/events/
+4. change ConfigPath and EventsPath in settings/settings.go
+5. ```go run main.go```
+6. ```go test -cover ./...``` (to watch test results)
 
 ## Packages description
 - models - all the structures that will be used in the project
