@@ -8,8 +8,8 @@ An application for processing logs of events related to the biathlon race. Befor
 ## Launch project
 1. ```git clone https://github.com/rybolovlevalexey/YadroGo/```
 2. go to the root of the project
-3. put your config file in files/configs/ and events file in files/events/
-4. change ConfigPath and EventsPath in settings/settings.go
+3. put your config file in files/configs/ and events file in files/events/ (optional)
+4. change ConfigPath and EventsPath in settings/settings.go (do not follow if you did not follow step 3)
 5. ```go run main.go```
 6. ```go test -cover ./...``` (to watch test results)
 
