@@ -1,6 +1,6 @@
 # Biathlon Competition Prototype
 
-An application for processing logs of events related to the biathlon race. Before receiving information about events, the race description file must be processed, and after receiving information about events, the final report is displayed.
+An application for processing logs of events related to the biathlon race. Before receiving information about events, the race description file must be processed, and after receiving information about events, the final report is displayed(finished competitors sorted by total time, others - by competitor id).
 
 ## Prerequisites
 - Go (1.20+)
