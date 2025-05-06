@@ -1,8 +1,10 @@
 package usecases
 
 import (
+	"YadroGo/models"
 	"YadroGo/services"
 	"YadroGo/settings"
+	"reflect"
 
 	"testing"
 )
@@ -108,5 +110,28 @@ func TestCreateLapsInfo(t *testing.T){
 	)
 	if resFinalRepPenaltyLapInfo != "{00:01:52.476, 0.445}"{
 		t.Log("not correct string with info about penalty laps")
+	}
+}
+
+func TestSortFinalReport(t *testing.T){
+	b := Biathlon{}
+	settings.ConfigPath = "../files/configs/config.json"
+	settings.EventsPath = "../files/events/events.txt"
+	cnf, _ := services.GetConfigInfo(settings.ConfigPath)
+	b.Init(cnf)
+	b.StartProcessing(settings.EventsPath)
+	
+	finalRep := FinalReport{}
+	finalRep.sortFinalReport()
+
+	compIdsAfterSort := []string{}
+	for _, array := range [][]models.CompetitorResultInfo{finalRep.ResultMapFinished, finalRep.ResultMapDNSF}{
+		for _, elem := range array{
+			compIdsAfterSort = append(compIdsAfterSort, elem.CompetitorId)
+		}
+	}
+
+	if !reflect.DeepEqual(compIdsAfterSort, []string{"2", "1", "3", "4", "5"}){
+		t.Error("not correct order of competitors ids after sorting final report results")
 	}
 }

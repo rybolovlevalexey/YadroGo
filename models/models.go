@@ -1,6 +1,7 @@
 package models
 
 
+// конфиги гонки, полученные из json файла
 type ConfigInfo struct{
 	LapsCount int `json:"laps"`  // количество кругов
 	LapLen int `json:"lapLen"`  // длина круга
@@ -10,6 +11,7 @@ type ConfigInfo struct{
 	StartDeltaStr string `json:"startDelta"`  // разница с которой надо стартовать
 }
 
+// информация об участнике, получаемая в процессе обработки эвентов
 type CompetitorInfo struct{  // информация о конкретном участнике
 	NotStartedFlag bool  // флаг о том, что участник не стартовал
 	NoFinishedFlag bool  // флаг о том, что участник не финишировал
@@ -20,6 +22,7 @@ type CompetitorInfo struct{  // информация о конкретном у�
 	CounterHitTargets  int // счётчик попаданий по мишеням
 }
 
+// итоговая информация об участнике гонки (часть полей получена после преобразования полей CompetitorInfo)
 type CompetitorResultInfo struct{
 	CompetitorId string  // id участника
 	DNSFInfo string  // финишировал/не стартовал/не финишировал
@@ -29,8 +32,3 @@ type CompetitorResultInfo struct{
 	PenaltyLapsInfo string  // строка с информацией о штрафных минутах
 	ShotsInfo string  // строка с информацией о точности стрельбы
 }
-
-type SortByTotalTime []CompetitorResultInfo
-func (a SortByTotalTime) Len() int           { return len(a) }
-func (a SortByTotalTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a SortByTotalTime) Less(i, j int) bool { return a[i].TotalTime < a[j].TotalTime }

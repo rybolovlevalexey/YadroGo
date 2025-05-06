@@ -163,15 +163,32 @@ func (f *FinalReport) createPenaltyLapsInfo(everyPenaltyLapTimes map[int][]strin
 }
 
 
-// вывод итогового отчёта(финишировавшие сортируются по возрастанию общего времени; нефинишировавшие печатаются в конце в порядке их появления)
+func (f *FinalReport) sortFinalReport(){
+	// сортировка финишировавших участников
+	sort.Slice(f.ResultMapFinished, func(i int, j int) bool{
+		return f.ResultMapFinished[i].TotalTime < f.ResultMapFinished[j].TotalTime
+	})
+
+	// сортировка остальных участников по id
+	sort.Slice(f.ResultMapDNSF, func(i int, j int) bool{
+		return f.ResultMapDNSF[i].CompetitorId < f.ResultMapDNSF[j].CompetitorId
+	})
+}
+
+
+// вывод итогового отчёта(финишировавшие сортируются по возрастанию общего времени; 
+// остальные печатаются в конце по возрастанию id)
 func (f *FinalReport) PrintSortedFinalReport(){
-	sort.Sort(models.SortByTotalTime(f.ResultMapFinished))
+	f.sortFinalReport()
+	
 	for _, elem := range f.ResultMapFinished{
 		log.Printf(
 			"%s %s(%s) %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, 
 			elem.TotalTimeStr, elem.EachLapInfo, elem.PenaltyLapsInfo, elem.ShotsInfo,
 		)
 	}
+
+	// печать не финишировавших и не стратовавших участников без сортировки
 	for _, elem := range f.ResultMapDNSF{
 		log.Printf(
 			"%s %s %s %s %s\n", elem.DNSFInfo, elem.CompetitorId, 
